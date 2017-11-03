@@ -7,11 +7,14 @@ import gevent
 import time
 import re
 from bs4 import BeautifulSoup
+import logging
+import os, os.path
 
 PROXY_POOL_URL = 'http://localhost:5000/get'
 PROXY_IP = None
 COMMON_URL = 'http://www.ivsky.com'     # 共有的url部分
-PAGE_NUM = 10                   # 要抓取的页数
+END_PAGE_NUM = 10                   # 要抓取的页数
+STAER_PAGE_NUM = 0
 SWITCH_IP_TIME = 10
 HEADERS = {
     'User-Agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
@@ -30,10 +33,10 @@ COOKIES = {
 #     except ConnectionError:
 #         return None
 
-def start_index_urls(PAGE_NUM):
+def start_index_urls(start, end):
     """获取索引页urls，构建索引页生成器"""
     global COMMON_URL
-    for i in range(PAGE_NUM+1):
+    for i in range(END_PAGE_NUM+1):
         if i == 0:
             index_url = COMMON_URL + '/tupian/index.html'
             yield index_url
@@ -45,7 +48,7 @@ def start_index_urls(PAGE_NUM):
 def get_index_html():
     """解析索引页"""
     print('get_index_html')
-    index_urls = start_index_urls(PAGE_NUM)
+    index_urls = start_index_urls(start=STAER_PAGE_NUM, end=END_PAGE_NUM)
 
     for index_url in index_urls:
         time.sleep(1)
@@ -108,6 +111,8 @@ def parse_detail_html():
         if detail_html:
             soup = BeautifulSoup(detail_html,'lxml')
             # picture_url_list = soup.select('body > div:nth-of-type(3) > div.left > ul > li:nth-of-type(1) > div > a > img')
+            # picture_folder = soup.select('body > div:nth-of-type(3) > div.album > div.al_tit > h1')[0].text
+            # print(picture_folder)    # 获取当前图集标题
             picture_url_list = soup.select('body > div:nth-of-type(3) > div.left > ul > li')
             for each in picture_url_list:
                 # print(each)
@@ -115,19 +120,31 @@ def parse_detail_html():
                 picture_urls = re.sub(r'tupian/(.*?)/', 'tupian/pre/', small_picture_urls)    # 将获取的缩略图放大
                 yield picture_urls
 
+def mkdir():
+    _path = './pictures'
+    isExists = os.path.exists(_path)
+    if not isExists:
+        os.mkdir(_path)
+        print(_path + '创建成功')
+    else:
+        print(_path + '已存在')
+
+
 def get_picture():
     """获取图片,创建相应的文件夹并保存图片"""
     print('get_picture')  # 测试
     picture_urls = parse_detail_html()
+    mkdir()
     i = 1
     for picture_url in picture_urls:
+        pass
         try:
             picture = requests.get(picture_url).content
-            file_name = str(i) + '.jpg'
+            file_name = './pictures/' + str(i) + '.jpg'
             with open(file_name, 'wb') as p:               # 存入文件中
                 p.write(picture)
                 p.close()
-            print(picture_url + 'was saved!')
+            print(picture_url + ' was saved!')
             i += 1
         except:
             print('error')
